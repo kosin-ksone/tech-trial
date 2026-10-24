@@ -615,7 +615,7 @@ function saveLastHos(name){if(!name)return;const m=lastHosMap();m[currentTech.na
 function resetForm(){
   if(typeof dayPlaces!=='undefined'){dayPlaces=[];$('#dayPlaces').innerHTML='';}
   $('#today').textContent=todayStr();clearBackdate();buildTasks();
-  $('#hosInput').value=getLastHos();$('#hosInfo').classList.add('hidden');$('#hosFree').classList.add('hidden');$('#typedProv').value='';$('#typedProvBox').classList.add('hidden');
+  $('#hosInput').value='';$('#hosInfo').classList.add('hidden');$('#hosFree').classList.add('hidden');$('#typedProv').value='';$('#typedProvBox').classList.add('hidden');
   $('#trvLabel').textContent='ค่าเดินทาง';$('#trvVal').textContent='—';gps='';selected={};
   perDiemPeriod='ทั้งวัน';perDiemAmt=250;boothFull=true;$('#pdCard').classList.add('hidden');$('#boothCtrl').classList.add('hidden');
   $('#hosInput').placeholder='เลือก รพ. ในเขตของฉัน · เขตอื่นพิมพ์เอง';
@@ -1046,6 +1046,40 @@ function weekDays(ws){
 }
 function cleanLabel(r){return r.desc?r.label.replace(' — '+r.desc,''):r.label;}
 let mineWeek=null;
+/* ===== แก้ไข / ลบ รายงานที่บันทึกแล้ว (ในเครื่องนี้) ===== */
+function editRecModal(o){   // o={title,sub,fields:[{k,label,val,rows}],thumbs:[],onSave(vals,thumbs),onDelete()}
+  var host=document.getElementById('modalHost')||document.body, ov=document.createElement('div'), thumbs=(o.thumbs||[]).slice();
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);z-index:9998;display:flex;align-items:flex-end;justify-content:center';
+  var e=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var inp='width:100%;box-sizing:border-box;border:1px solid #d6d9e0;border-radius:10px;padding:9px 11px;font:inherit;font-size:14px;margin:3px 0 10px;background:#fff;resize:vertical';
+  var bt='flex:1;padding:12px;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer';
+  ov.innerHTML='<div style="background:#fff;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px 20px;box-sizing:border-box">'
+    +'<div style="font-weight:800;font-size:16px;color:var(--brand,var(--brand-dark))">✏️ '+e(o.title)+'</div><div style="font-size:12px;color:#888;margin:2px 0 12px">'+e(o.sub||'')+'</div>'
+    +o.fields.map(function(f){return '<div style="font-size:12.5px;font-weight:700;color:#444">'+e(f.label)+'</div>'+(f.rows?'<textarea data-k="'+f.k+'" rows="'+f.rows+'" style="'+inp+'">'+e(f.val)+'</textarea>':'<input data-k="'+f.k+'" value="'+e(f.val)+'" style="'+inp+'">');}).join('')
+    +'<div style="font-size:12.5px;font-weight:700;color:#444">รูป (แตะ × เพื่อลบ)</div><div id="emPh" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px"></div>'
+    +'<label style="display:inline-block;border:1.5px dashed var(--gold,#C9A24A);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;margin-bottom:12px">＋ เพิ่มรูป<input type="file" accept="image/*" multiple id="emFile" style="display:none"></label>'
+    +'<div style="display:flex;gap:8px"><button id="emSave" style="'+bt+';border:0;background:var(--brand,var(--brand-dark));color:#fff">บันทึกการแก้ไข</button><button id="emNo" style="'+bt+';border:1px solid #d6d9e0;background:#fff">ยกเลิก</button></div>'
+    +'<button id="emDel" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1px solid #f1b8b4;background:#fdecea;color:#b3261e;font:inherit;font-weight:700;cursor:pointer">🗑 ลบรายการนี้</button></div>';
+  host.appendChild(ov);
+  var q=function(s){return ov.querySelector(s);};
+  function drawPh(){ q('#emPh').innerHTML=thumbs.map(function(t,i){return '<div style="position:relative"><img src="'+t+'" style="width:74px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><button data-x="'+i+'" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;font-weight:700;cursor:pointer">×</button></div>';}).join('')||'<span style="font-size:12px;color:#999">ไม่มีรูป</span>';
+    [].forEach.call(ov.querySelectorAll('[data-x]'),function(b){b.onclick=function(){thumbs.splice(+b.dataset.x,1);drawPh();};}); }
+  drawPh();
+  q('#emFile').onchange=function(ev){ [].forEach.call(ev.target.files,function(f){ var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ var W=220,c=document.createElement('canvas'); c.width=W; c.height=Math.round(im.height*W/im.width); c.getContext('2d').drawImage(im,0,0,c.width,c.height); thumbs.push(c.toDataURL('image/jpeg',0.6)); drawPh(); }; im.src=rd.result; }; rd.readAsDataURL(f); }); ev.target.value=''; };
+  var close=function(){ host.removeChild(ov); };
+  q('#emNo').onclick=close;
+  q('#emSave').onclick=function(){ var v={}; [].forEach.call(ov.querySelectorAll('[data-k]'),function(x){v[x.dataset.k]=x.value.trim();}); if(o.onSave(v,thumbs)!==false) close(); };
+  q('#emDel').onclick=function(){ if(q('#emDel').dataset.ok){ o.onDelete(); close(); return; } q('#emDel').dataset.ok=1; q('#emDel').textContent='แตะอีกครั้งเพื่อยืนยันลบ'; q('#emDel').style.background='#b3261e'; q('#emDel').style.color='#fff'; };
+}
+function editMine(id){
+  const r=getReports().find(x=>x.id===id);if(!r)return;
+  editRecModal({title:'แก้ไขงาน '+r.code+' '+cleanLabel(r),sub:r.dateTh||r.dateKey,thumbs:r.thumbs||[],
+    fields:[{k:'hospital',label:'สถานที่',val:r.hospital},{k:'desc',label:'รายละเอียด',val:r.desc,rows:3},{k:'note',label:'ปัญหาและแนวทางแก้ไข',val:r.note,rows:2}],
+    onSave:(v,th)=>{if(!v.hospital){showModal({icon:'📍',title:'ใส่สถานที่ก่อนนะคะ',buttons:[{label:'รับทราบ',val:'ok',cls:'pri'}]});return false;}
+      const a=getReports();a.forEach(x=>{if(x.id===id){const base=cleanLabel(x);x.hospital=v.hospital;x.desc=v.desc;x.label=v.desc&&x.label.indexOf(' — ')>=0?base+' — '+v.desc:base;x.note=v.note;x.thumbs=th;x.photoCount=th.length;x.edited=new Date().toISOString();}});
+      saveReports(a);renderMine();},
+    onDelete:()=>{saveReports(getReports().filter(x=>x.id!==id));renderMine();}});
+}
 function renderMine(){
   if(!mineWeek)mineWeek=wkStart(todayKey());
   const ws=mineWeek,wm=weekOfMonth(ws),days=weekDays(ws),nRec=days.reduce((a,d)=>a+d.items.length,0);
@@ -1067,7 +1101,8 @@ function renderMine(){
           (r.desc?'<div style="color:var(--mut);font-size:11.5px">'+esc(r.desc)+'</div>':'')+
           (r.note?'<div class="pr">⚠ '+esc(r.note)+'</div>':'')+
           (show.length?'<div class="photos">'+show.map((t,k)=>'<div class="ph-wrap"><img class="ph" src="'+t+'" data-rid="'+r.id+'" data-k="'+k+'">'+(k===3&&th.length>4?'<div class="more">+'+(th.length-4)+'</div>':'')+'</div>').join('')+'</div>':
-            (r.photoCount?'<div style="font-size:11px;color:var(--mut2)">📷 '+r.photoCount+' รูป</div>':''))+'</div>';
+            (r.photoCount?'<div style="font-size:11px;color:var(--mut2)">📷 '+r.photoCount+' รูป</div>':''))+
+          '<button class="dbtn" style="margin:6px 0 0" data-ed="'+r.id+'">✏️ แก้/ลบ</button></div>';
       });
       h+='</div>';
     });
@@ -1082,6 +1117,7 @@ function renderMine(){
   $$('#mineBody img[data-rid]').forEach(im=>im.onclick=()=>{const r=myRecs().find(x=>x.id===im.dataset.rid);if(r)openViewer(r.thumbs,+im.dataset.k,r.dateTh+' · '+esc(r.hospital)+' · '+r.code+' '+esc(cleanLabel(r)));});
   $$('#mineBody [data-dl]').forEach(b=>b.onclick=()=>printReport(b.dataset.dl,ws));
   $$('#mineBody [data-day]').forEach(b=>b.onclick=()=>printReport('day',ws,b.dataset.day));
+  $$('#mineBody [data-ed]').forEach(b=>b.onclick=()=>editMine(b.dataset.ed));
   const xn={week:'รายงานรายสัปดาห์',month:'รายงานรายเดือน',day:'รายงานรายวัน'};
   $$('#mineBody [data-xl]').forEach(b=>b.onclick=()=>asExcel(()=>printReport(b.dataset.xl,ws),xn[b.dataset.xl]+' '+currentTech.name+' '+(b.dataset.xl==='month'?ws.slice(0,7):ws)+'.xlsx'));
   $$('#mineBody [data-xday]').forEach(b=>b.onclick=()=>asExcel(()=>printReport('day',ws,b.dataset.xday),'รายงานรายวัน '+currentTech.name+' '+b.dataset.xday+'.xlsx'));
