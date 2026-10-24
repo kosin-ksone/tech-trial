@@ -1,5 +1,5 @@
 // service worker — ให้ติดตั้งเป็นแอปบนมือถือ/คอมได้ (ดึงของใหม่ก่อนเสมอ ออฟไลน์ค่อยใช้ของในเครื่อง)
-const C='endo-tech-trial-v6';
+const C='endo-tech-trial-v7';
 const SHELL=['./','./index.html','./config.js','./data.js','./zone.js','./manifest.json','./icon-192.png','./icon-512.png','./favicon-32.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
