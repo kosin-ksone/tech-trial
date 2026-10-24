@@ -1049,7 +1049,7 @@ let mineWeek=null;
 /* ===== แก้ไข / ลบ รายงานที่บันทึกแล้ว (ในเครื่องนี้) ===== */
 function editRecModal(o){   // o={title,sub,fields:[{k,label,val,rows}],thumbs:[],onSave(vals,thumbs),onDelete()}
   var host=document.getElementById('modalHost')||document.body, ov=document.createElement('div'), thumbs=(o.thumbs||[]).slice();
-  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);z-index:9998;display:flex;align-items:flex-end;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);z-index:10000;display:flex;align-items:flex-end;justify-content:center';
   var e=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   var inp='width:100%;box-sizing:border-box;border:1px solid #d6d9e0;border-radius:10px;padding:9px 11px;font:inherit;font-size:14px;margin:3px 0 10px;background:#fff;resize:vertical';
   var bt='flex:1;padding:12px;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer';
