@@ -533,7 +533,7 @@ function saveLastTechName(name){try{localStorage.setItem('kosintrial_lasttech',n
 function buildLogin(){
   const g={bkk:$('#grpBkk'),hybrid:$('#grpHybrid'),tcj:$('#grpTcj')};
   for(const k in g)g[k].innerHTML='';
-  allTechs().forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name+((t.status==='pending'||t.status==='รอยืนยัน')?' · รอยืนยัน':'');(g[techGroup(t)]||g.tcj).appendChild(o);});
+  allTechs().forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name+(t.nick?' ('+t.nick+')':'')+((t.status==='pending'||t.status==='รอยืนยัน')?' · รอยืนยัน':'');(g[techGroup(t)]||g.tcj).appendChild(o);});
   const last=getLastTechName();
   $('#techPick').value=(last&&findTech(last))?last:'';
   $('#loginMsg').textContent='';
@@ -576,8 +576,8 @@ function todayKey(){return dkey();}
 function weekStartKey(){const d=new Date();const off=(d.getDay()+6)%7;d.setDate(d.getDate()-off);return dkey(d);}
 function getReports(){try{return JSON.parse(localStorage.getItem('kosintrial_reports')||'[]')}catch(e){return[]}}
 function saveReports(a){
-  // เก็บรูปย่อไว้ในเครื่องแค่ 35 วันล่าสุด กันพื้นที่เต็ม (รูปจริงอยู่ใน Drive)
-  const cut=dkey(new Date(Date.now()-35*86400000));a.forEach(r=>{if(r.thumbs&&r.dateKey<cut)delete r.thumbs;});
+  // เก็บรูปย่อไว้ในเครื่องแค่ 15 วันล่าสุด กันพื้นที่เต็ม (เท่ากับแอปเซล)
+  const cut=dkey(new Date(Date.now()-15*86400000));a.forEach(r=>{if(r.thumbs&&r.dateKey<cut)delete r.thumbs;});
   try{localStorage.setItem('kosintrial_reports',JSON.stringify(a));}
   catch(e){a.forEach(r=>{if(r.thumbs&&r.dateKey<dkey(new Date(Date.now()-10*86400000)))delete r.thumbs;});localStorage.setItem('kosintrial_reports',JSON.stringify(a));}
 }
@@ -586,7 +586,7 @@ function myRecs(){return getReports().filter(r=>r.pin===currentTech.pin||r.tech=
 /* ===== enter app ===== */
 function enterApp(){
   $('#scrLogin').classList.add('hidden');$('#scrOk').classList.add('hidden');$('#scrApp').classList.remove('hidden');
-  $('#who').innerHTML='<b>'+currentTech.name.split(' ')[0]+'</b><br>'+(isTcj()?'ต่างจังหวัด':(currentTech.vehicle||'กทม.'));
+  $('#who').innerHTML='<b>'+(currentTech.nick||currentTech.name.split(' ')[0])+'</b><br>'+(isTcj()?'ต่างจังหวัด':(currentTech.vehicle||'กทม.'));
   const dl=$('#hosList');dl.innerHTML='';const seen={};
   // ขึ้นเฉพาะ รพ. ในเขตตัวเอง (เขตการทำงาน rev122) · ไปเขตอื่นพิมพ์เอง
   const myZone=(window.ZONE_TECH||{})[currentTech.name];
@@ -1073,9 +1073,9 @@ function renderMine(){
     });
     h+='</div>';
   });
-  h+='<div class="dlrow"><button class="btn" data-dl="week">⬇ PDF · รายงานสัปดาห์นี้</button><button class="btn" data-dl="month">⬇ PDF · รายงานทั้งเดือน</button></div>'+
-    '<div class="dlrow" style="margin-top:-4px"><button class="btn" data-xl="week">📊 Excel · รายงานสัปดาห์นี้</button><button class="btn" data-xl="month">📊 Excel · รายงานทั้งเดือน</button></div>'+
-    '<div style="font-size:11px;color:var(--mut);text-align:center;margin-top:-4px">แอปนี้แค่บันทึก · โหลดไฟล์แล้วส่งเมลปลายทางของหน่วยงานเอง</div>';
+  h+='<div class="dlrow"><button class="btn" data-dl="week">⬇ PDF · สัปดาห์นี้</button><button class="btn" data-dl="month">⬇ PDF · ทั้งเดือน</button></div>'+
+    '<div class="dlrow" style="margin-top:-4px"><button class="btn" data-xl="week">📊 Excel · สัปดาห์นี้</button><button class="btn" data-xl="month">📊 Excel · ทั้งเดือน</button></div>'+
+    '<div style="background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.55;margin:8px 0 4px"><b>⚠️ รายงานเก็บอยู่ในเครื่องนี้เท่านั้น</b> — แอปไม่ได้ส่งให้ใคร<br>• โหลด PDF/Excel แล้ว<b>ส่งเมลจากเมลของตัวเอง ทุกสัปดาห์</b><br>• รูปในแอปเก็บแค่ <b>15 วัน</b> — โหลดก่อนรูปหาย<br>• เก็บไฟล์ที่โหลดไว้ในเครื่อง/อีเมลของตัวเองด้วย</div>';
   h+='<div class="ver">'+verText()+'</div>';
   $('#mineBody').innerHTML=h;
   $$('#mineBody [data-wk]').forEach(b=>b.onclick=()=>{if(b.disabled)return;mineWeek=addDays(mineWeek,7*+b.dataset.wk);renderMine();});
