@@ -280,12 +280,13 @@
   </section>
 
   <section id="scrOk" class="hidden">
-    <div class="top"><div class="ic">🔧</div><div style="flex:1"><h1>ส่งรายงานแล้ว</h1><div class="sub">KOSIN</div></div></div>
+    <div class="top"><div class="ic">✅</div><div style="flex:1"><h1>บันทึกแล้ว</h1><div class="sub">ENDOSCOPE &amp; SERVICE</div></div></div>
     <div class="ok-scr">
       <div class="big">✓</div><h2>บันทึกเรียบร้อย</h2>
-      <p style="color:var(--mut);margin:4px 0 0" id="okSub">รอหัวหน้าตรวจอนุมัติเพื่อคิดคะแนน</p>
+      <p style="color:var(--mut);margin:4px 0 0" id="okSub">บันทึกในเครื่องแล้ว — โหลด PDF/Excel ส่งเมลได้ที่ รายงานของฉัน</p>
       <div class="summ" id="okSumm"></div>
       <button class="send" style="width:100%;padding:14px" id="againBtn">＋ บันทึกเพิ่ม (วันเดียวกัน)</button>
+      <button class="btn" style="width:100%;padding:12px;margin-top:8px;font-weight:700" id="okMineBtn">ดูรายงานของฉัน</button>
       <div class="todaybox" id="todayCount"></div>
       <button class="link" id="logoutBtn">ออกจากระบบ</button>
     </div>
@@ -1008,12 +1009,13 @@ function showOk(recs,h,all){
   $('#scrApp').classList.add('hidden');$('#scrOk').classList.remove('hidden');
   const totPh=recs.reduce((a,r)=>a+r.photoCount,0);
   const defer=recs.some(r=>r.status==='รอเอกสาร');const flags=recs.some(r=>r.flags&&r.flags.length);
-  $('#okSub').textContent=defer?('มีงานรอแนบใบ maintenance ภายใน '+DOC_GRACE_DAYS+' วัน'):(flags?'ส่งแล้ว — มีบางงานติดธงให้หัวหน้าตรวจเพิ่ม':'รอหัวหน้าตรวจอนุมัติ');
+  $('#okSub').textContent=defer?('มีงานรอแนบใบ maintenance ภายใน '+DOC_GRACE_DAYS+' วัน'):'บันทึกในเครื่องแล้ว — โหลด PDF/Excel ส่งเมลได้ที่ รายงานของฉัน';
   const list=recs.map(r=>'• '+r.code+' '+r.label+(r.status==='รอเอกสาร'?' — รอเอกสาร':'')+((r.flags&&r.flags.length)?' ⚑':'')).join('<br>');
   $('#okSumm').innerHTML='<div class="r"><span>ช่าง</span><span>'+recs[0].tech+'</span></div><div class="r"><span>สถานที่</span><span>'+[...new Set(recs.map(r=>r.hospital))].join('<br>')+'</span></div><div class="tasks" style="padding:8px 0">'+list+'</div><div class="r"><span>รวม</span><span>'+recs.length+' งาน · '+totPh+' รูป</span></div>';
   const mine=all.filter(r=>(r.pin===currentTech.pin||r.tech===currentTech.name)&&r.dateKey===todayKey());
   $('#todayCount').textContent='วันนี้คุณรายงานแล้ว '+mine.length+' งาน';
 }
+$('#okMineBtn').onclick=()=>{$('#scrOk').classList.add('hidden');$('#scrApp').classList.remove('hidden');switchTab('mine');window.scrollTo(0,0);};
 $('#againBtn').onclick=()=>{const keep=reportDate;$('#scrOk').classList.add('hidden');$('#scrApp').classList.remove('hidden');switchTab('report');resetForm();
   if(keep){reportDate=keep;$('#backdateDate').value=keep.key;$('#today').innerHTML=keep.th+' <span style="color:var(--amber);font-size:11px;font-weight:400">· ย้อนหลัง</span>';$('#backdatePanel').classList.remove('hidden');}};   // บันทึกเพิ่มได้เรื่อยๆ วันเดิมไม่หาย
 function goLogin(){currentTech=null;clearSession();$('#scrOk').classList.add('hidden');$('#scrApp').classList.add('hidden');$('#scrLogin').classList.remove('hidden');buildLogin();}
