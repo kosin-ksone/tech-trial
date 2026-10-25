@@ -236,7 +236,7 @@
         <div class="card">
           <div class="lbl">📅 วันที่ <span id="today" style="color:var(--txt);font-weight:600"></span><button id="backdateBtn" type="button" style="margin-left:auto;font-size:11px;border:1px solid var(--line2);border-radius:20px;padding:3px 10px;background:#fff;cursor:pointer;color:var(--accent)">เลือกวันย้อนหลัง</button></div>
           <div id="backdatePanel" class="hidden" style="margin:8px 0 4px;padding:10px;background:var(--amber-bg);border-radius:10px">
-            <div style="font-size:11px;color:var(--amber);margin-bottom:6px">เลือกวันที่ทำงานจริง (ย้อนหลังได้ · ระบบบันทึกว่าส่งสาย)</div>
+            <div style="font-size:11px;color:var(--amber);margin-bottom:6px">เลือกวันที่ทำงานจริง (ย้อนหลังได้)</div>
             <input type="date" id="backdateDate" class="field">
           </div>
           <div class="lbl" style="margin-top:10px">🏥 โรงพยาบาล / คลินิก / สถานที่</div>
@@ -667,7 +667,7 @@ function loadSession(){try{return JSON.parse(sessionStorage.getItem('kosintrial_
 function clearSession(){try{sessionStorage.removeItem('kosintrial_session');}catch(e){}}
 function restoreSession(sess){
   currentTech=sess.tech;enterApp();
-  if(sess.reportDate){reportDate=sess.reportDate;$('#backdateDate').value=reportDate.key;$('#today').innerHTML=reportDate.th+' <span style="color:var(--amber);font-size:11px;font-weight:400">· ย้อนหลัง (บันทึกส่งสาย)</span>';$('#backdatePanel').classList.remove('hidden');}
+  if(sess.reportDate){reportDate=sess.reportDate;$('#backdateDate').value=reportDate.key;$('#today').innerHTML=reportDate.th+' <span style="color:var(--amber);font-size:11px;font-weight:400">· ย้อนหลัง</span>';$('#backdatePanel').classList.remove('hidden');}
   selected=sess.selected||{};
   perDiemPeriod=sess.perDiemPeriod||'ทั้งวัน';perDiemAmt=sess.perDiemAmt||250;boothFull=(sess.boothFull!==false);
   reportNote=sess.reportNote||'';$('#reportNoteIn').value=reportNote;
@@ -876,7 +876,7 @@ $('#backdateBtn').onclick=()=>{
 };
 function onBackdate(){
   const d=$('#backdateDate').value;
-  if(d){reportDate={key:d,th:thFromKey(d)};$('#today').innerHTML=reportDate.th+' <span style="color:var(--amber);font-size:11px;font-weight:400">· ย้อนหลัง (บันทึกส่งสาย)</span>';}
+  if(d){reportDate={key:d,th:thFromKey(d)};$('#today').innerHTML=reportDate.th+' <span style="color:var(--amber);font-size:11px;font-weight:400">· ย้อนหลัง</span>';}
   else{reportDate=null;$('#today').textContent=todayStr();}
   applyHos();
 }
