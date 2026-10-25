@@ -240,7 +240,7 @@
             <input type="date" id="backdateDate" class="field">
           </div>
           <div class="lbl" style="margin-top:10px">🏥 โรงพยาบาล / คลินิก / สถานที่</div>
-          <input class="field" id="hosInput" list="hosList" placeholder="เลือก รพ. ในเขตของฉัน หรือพิมพ์เอง (เขตอื่น)" autocomplete="off">
+          <input class="field" id="hosInput" list="hosList" placeholder="พิมพ์ชื่อ รพ. คร่าวๆ แล้วเลือก (ไม่มีก็พิมพ์เอง)" autocomplete="off">
           <datalist id="hosList"></datalist>
           <div class="hos-info hidden" id="hosInfo"><div class="chip" id="chipArea"></div><div class="chip trv" id="chipTrv" style="display:none"></div></div>
           <div class="hos-free hidden" id="hosFree">📝 สถานที่นอกรายการ — เลือกจังหวัดด้านล่าง</div>
@@ -584,6 +584,32 @@ function saveReports(a){
 function myRecs(){return getReports().filter(r=>r.pin===currentTech.pin||r.tech===currentTech.name);}
 
 /* ===== enter app ===== */
+/* ===== เดาชื่อ รพ. ขณะพิมพ์ — ทุก รพ. (เขตตัวเองขึ้นก่อน) · พิมพ์คร่าวๆ/กลางคำก็เจอ ===== */
+function hnorm(x){ return String(x||'').replace(/โรงพยาบาล|ร\.?พ\.?|คลีนิก|คลินิก|คลีนิค|คลินิค|[\s.()\-]/g,''); }
+function hosRank(q,own,all,max){
+  var n=hnorm(q),seen={},res=[]; if(!n) return own.slice(0,max||12);
+  [own,all].forEach(function(L){ var s=[],c=[]; L.forEach(function(h){ if(seen[h]) return; var k=hnorm(h); if(k.indexOf(n)===0) s.push(h); else if(k.indexOf(n)>0) c.push(h); });
+    s.concat(c).forEach(function(h){ if(!seen[h]){ seen[h]=1; res.push(h); } }); });
+  return res.slice(0,max||12);
+}
+function hosSuggest(inp,getOwn,getAll,onPick){
+  if(!inp||inp._hs) return; inp._hs=1; inp.removeAttribute('list'); inp.setAttribute('autocomplete','off');
+  var box=document.createElement('div');
+  box.style.cssText='display:none;background:#fff;border:1px solid #ddd3c6;border-radius:10px;margin-top:4px;max-height:240px;overflow:auto;box-shadow:0 8px 22px rgba(0,0,0,.12);position:relative;z-index:40';
+  inp.parentNode.insertBefore(box,inp.nextSibling);
+  var skip=0;
+  function draw(){ if(skip){skip=0;return;} var L=hosRank(inp.value,getOwn()||[],getAll()||[],12), q=inp.value.trim();
+    if(!L.length){ box.style.display='none'; return; }
+    box.innerHTML=L.map(function(h){ return '<div data-h="'+String(h).replace(/"/g,'&quot;')+'" style="padding:10px 12px;font-size:14px;border-bottom:1px solid #f0e9df;cursor:pointer">'+String(h).replace(/</g,'&lt;')+'</div>'; }).join('')
+      +(q&&L.indexOf(q)<0?'<div style="padding:8px 12px;font-size:12px;color:#999">ไม่มีในรายการ — พิมพ์ต่อได้เลย</div>':'');
+    box.style.display='block';
+    [].forEach.call(box.querySelectorAll('[data-h]'),function(d){ d.onmousedown=function(e){ e.preventDefault(); }; d.onclick=function(){ inp.value=d.getAttribute('data-h'); box.style.display='none'; skip=1; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); if(onPick) onPick(inp.value); }; });
+  }
+  inp.addEventListener('input',draw); inp.addEventListener('focus',draw);
+  inp.addEventListener('blur',function(){ setTimeout(function(){ box.style.display='none'; },200); });
+}
+function myZoneHos(){const z=(window.ZONE_TECH||{})[currentTech&&currentTech.name]||[];return z.slice().sort(new Intl.Collator('th').compare);}
+let _allHos=null;function allZoneHos(){if(!_allHos){const s={};Object.keys(window.ZONE_INFO||{}).forEach(h=>s[h]=1);Object.values(window.ZONE_TECH||{}).forEach(a=>a.forEach(h=>s[h]=1));_allHos=Object.keys(s).sort(new Intl.Collator('th').compare);}return _allHos;}
 function enterApp(){
   $('#scrLogin').classList.add('hidden');$('#scrOk').classList.add('hidden');$('#scrApp').classList.remove('hidden');
   $('#who').innerHTML='<b>'+(currentTech.nick||currentTech.name.split(' ')[0])+'</b><br>'+(isTcj()?'ต่างจังหวัด':(currentTech.vehicle||'กทม.'));
@@ -618,7 +644,7 @@ function resetForm(){
   $('#hosInput').value='';$('#hosInfo').classList.add('hidden');$('#hosFree').classList.add('hidden');$('#typedProv').value='';$('#typedProvBox').classList.add('hidden');
   $('#trvLabel').textContent='ค่าเดินทาง';$('#trvVal').textContent='—';gps='';selected={};
   perDiemPeriod='ทั้งวัน';perDiemAmt=250;boothFull=true;$('#pdCard').classList.add('hidden');$('#boothCtrl').classList.add('hidden');
-  $('#hosInput').placeholder='เลือก รพ. ในเขตของฉัน · เขตอื่นพิมพ์เอง';
+  $('#hosInput').placeholder='พิมพ์ชื่อ รพ. คร่าวๆ แล้วเลือก (ไม่มีก็พิมพ์เอง)';
   reportNote='';$('#reportNoteIn').value='';
   if($('#hosInput').value)applyHos();
   window.scrollTo(0,0);recalc();
@@ -835,6 +861,7 @@ function applyHos(){
   recalc();
 }
 $('#hosInput').addEventListener('input',applyHos);
+hosSuggest($('#hosInput'),myZoneHos,allZoneHos);
 $('#typedProv').addEventListener('input',()=>{applyHos();recalc();});
 
 /* ===== ส่งย้อนหลัง (ป่วย/เหตุจำเป็น) — ต้องรออนุมัติ ===== */
@@ -1478,7 +1505,7 @@ function editPlanSlot(ws,dk,slot){
   const reasonHtml=isChange?'<div style="font-size:11px;color:var(--amber);text-align:left;margin:2px 0 6px">เปลี่ยนจากเดิม? แจ้งเหตุผล (หัวหน้าเห็น)</div><select id="plReason" style="margin-bottom:8px"><option value="">— เหตุผลที่เปลี่ยน —</option><option>ลูกค้าเรียกด่วน</option><option>งานเลื่อน</option><option>ป่วย</option><option>อื่นๆ</option></select><input id="plReasonOther" placeholder="ระบุเหตุผลอื่นๆ" style="display:none">':'';
   ov.innerHTML='<div class="modal"><h3>แพลน '+slot+'</h3><p>'+thFromKey(dk)+'</p><input id="plHos" list="hosList" placeholder="เลือก/พิมพ์ ชื่อ รพ."><input id="plDetail" placeholder="รายละเอียดงาน (ถ้ามี)">'+reasonHtml+'<div class="mb"><button class="mbtn pri" id="plSave">บันทึก</button>'+(isChange?'<button class="mbtn" id="plClear">ลบแผนช่องนี้</button>':'')+'<button class="mbtn" id="plCancel">ยกเลิก</button></div></div>';
   host.appendChild(ov);
-  ov.querySelector('#plHos').value=cur.hospital||'';ov.querySelector('#plDetail').value=cur.detail||'';
+  ov.querySelector('#plHos').value=cur.hospital||'';hosSuggest(ov.querySelector('#plHos'),myZoneHos,allZoneHos);ov.querySelector('#plDetail').value=cur.detail||'';
   const rs=ov.querySelector('#plReason');if(rs)rs.onchange=()=>{ov.querySelector('#plReasonOther').style.display=rs.value==='อื่นๆ'?'block':'none';};
   function reasonVal(){if(!rs)return'';let v=rs.value;if(v==='อื่นๆ')v=ov.querySelector('#plReasonOther').value.trim()||'อื่นๆ';return v;}
   ov.querySelector('#plCancel').onclick=()=>host.removeChild(ov);
