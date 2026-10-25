@@ -776,7 +776,7 @@ async function addPhotos(files,code){
 }
 async function onPhotoInputChange(e){
   const files=Array.from(e.target.files||[]);e.target.value='';
-  if(docRecId){if(files[0]){completeDoc(docRecId);}docRecId=null;return;}
+  if(docRecId){if(files[0]){completeDoc(docRecId,files[0]);}docRecId=null;return;}
   if(!activeCode||!selected[activeCode])return;
   await addPhotos(files,activeCode);
 }
@@ -931,6 +931,7 @@ async function doSubmit(silent){
   const all=getReports();recs.forEach(r=>all.push(r));saveReports(all);
   const hs=submittedHashes();sel.forEach(s=>s.photos.forEach(p=>hs.push(p.hash)));localStorage.setItem('kosintrial_hashes',JSON.stringify(hs));
   learnCoords(hname,photoGps[0]);
+  sel.forEach((s,i)=>syncPush({op:'upsert',rec:recs[i],photos:{add:s.photos.map(p=>p.data)}}));
   if(SUBMIT_URL)sel.forEach((s,i)=>{fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify(Object.assign({},recs[i],{photos:s.photos.map(p=>p.data)}))}).catch(()=>{});});
   if(silent)return recs;
   clearSession();
@@ -1078,7 +1079,7 @@ function cleanLabel(r){return r.desc?r.label.replace(' — '+r.desc,''):r.label;
 let mineWeek=null;
 /* ===== แก้ไข / ลบ รายงานที่บันทึกแล้ว (ในเครื่องนี้) ===== */
 function editRecModal(o){   // o={title,sub,fields:[{k,label,val,rows}],thumbs:[],onSave(vals,thumbs),onDelete()}
-  var host=document.getElementById('modalHost')||document.body, ov=document.createElement('div'), thumbs=(o.thumbs||[]).slice();
+  var host=document.getElementById('modalHost')||document.body, ov=document.createElement('div'), thumbs=(o.thumbs||[]).slice(), pIdx=thumbs.map(function(_,i){return i;}), pFull=thumbs.map(function(){return null;});
   ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);z-index:10000;display:flex;align-items:flex-end;justify-content:center';
   var e=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   var inp='width:100%;box-sizing:border-box;border:1px solid #d6d9e0;border-radius:10px;padding:9px 11px;font:inherit;font-size:14px;margin:3px 0 10px;background:#fff;resize:vertical';
@@ -1093,22 +1094,22 @@ function editRecModal(o){   // o={title,sub,fields:[{k,label,val,rows}],thumbs:[
   host.appendChild(ov);
   var q=function(s){return ov.querySelector(s);};
   function drawPh(){ q('#emPh').innerHTML=thumbs.map(function(t,i){return '<div style="position:relative"><img src="'+t+'" style="width:74px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><button data-x="'+i+'" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;font-weight:700;cursor:pointer">×</button></div>';}).join('')||'<span style="font-size:12px;color:#999">ไม่มีรูป</span>';
-    [].forEach.call(ov.querySelectorAll('[data-x]'),function(b){b.onclick=function(){thumbs.splice(+b.dataset.x,1);drawPh();};}); }
+    [].forEach.call(ov.querySelectorAll('[data-x]'),function(b){b.onclick=function(){thumbs.splice(+b.dataset.x,1);pIdx.splice(+b.dataset.x,1);pFull.splice(+b.dataset.x,1);drawPh();};}); }
   drawPh();
-  q('#emFile').onchange=function(ev){ [].forEach.call(ev.target.files,function(f){ var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ var W=220,c=document.createElement('canvas'); c.width=W; c.height=Math.round(im.height*W/im.width); c.getContext('2d').drawImage(im,0,0,c.width,c.height); thumbs.push(c.toDataURL('image/jpeg',0.6)); drawPh(); }; im.src=rd.result; }; rd.readAsDataURL(f); }); ev.target.value=''; };
+  q('#emFile').onchange=function(ev){ [].forEach.call(ev.target.files,function(f){ var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ var W=220,c=document.createElement('canvas'); c.width=W; c.height=Math.round(im.height*W/im.width); c.getContext('2d').drawImage(im,0,0,c.width,c.height); thumbs.push(c.toDataURL('image/jpeg',0.6)); var W2=Math.min(1280,im.width),c2=document.createElement('canvas'); c2.width=W2; c2.height=Math.round(im.height*W2/im.width); c2.getContext('2d').drawImage(im,0,0,c2.width,c2.height); pIdx.push(-1); pFull.push(c2.toDataURL('image/jpeg',0.7)); drawPh(); }; im.src=rd.result; }; rd.readAsDataURL(f); }); ev.target.value=''; };
   var close=function(){ host.removeChild(ov); };
   q('#emNo').onclick=close;
-  q('#emSave').onclick=function(){ var v={}; [].forEach.call(ov.querySelectorAll('[data-k]'),function(x){v[x.dataset.k]=x.value.trim();}); if(o.onSave(v,thumbs)!==false) close(); };
+  q('#emSave').onclick=function(){ var v={}; [].forEach.call(ov.querySelectorAll('[data-k]'),function(x){v[x.dataset.k]=x.value.trim();}); if(o.onSave(v,thumbs,{keep:(o.thumbs||[]).length?pIdx.filter(function(i){return i>=0;}):undefined,add:pFull.filter(Boolean)})!==false) close(); };
   q('#emDel').onclick=function(){ if(q('#emDel').dataset.ok){ o.onDelete(); close(); return; } q('#emDel').dataset.ok=1; q('#emDel').textContent='แตะอีกครั้งเพื่อยืนยันลบ'; q('#emDel').style.background='#b3261e'; q('#emDel').style.color='#fff'; };
 }
 function editMine(id){
   const r=getReports().find(x=>x.id===id);if(!r)return;
   editRecModal({title:'แก้ไขงาน '+r.code+' '+cleanLabel(r),sub:r.dateTh||r.dateKey,thumbs:r.thumbs||[],
     fields:[{k:'hospital',label:'สถานที่',val:r.hospital},{k:'desc',label:'รายละเอียด',val:r.desc,rows:3},{k:'note',label:'ปัญหาและแนวทางแก้ไข',val:r.note,rows:2}],
-    onSave:(v,th)=>{if(!v.hospital){showModal({icon:'📍',title:'ใส่สถานที่ก่อนนะคะ',buttons:[{label:'รับทราบ',val:'ok',cls:'pri'}]});return false;}
-      const a=getReports();a.forEach(x=>{if(x.id===id){const base=cleanLabel(x);x.hospital=v.hospital;x.desc=v.desc;x.label=v.desc&&x.label.indexOf(' — ')>=0?base+' — '+v.desc:base;x.note=v.note;x.thumbs=th;x.photoCount=th.length;x.edited=new Date().toISOString();}});
+    onSave:(v,th,ps)=>{if(!v.hospital){showModal({icon:'📍',title:'ใส่สถานที่ก่อนนะคะ',buttons:[{label:'รับทราบ',val:'ok',cls:'pri'}]});return false;}
+      const a=getReports();a.forEach(x=>{if(x.id===id){const base=cleanLabel(x);x.hospital=v.hospital;x.desc=v.desc;x.label=v.desc&&x.label.indexOf(' — ')>=0?base+' — '+v.desc:base;x.note=v.note;x.thumbs=th;x.photoCount=th.length;x.edited=new Date().toISOString();syncPush({op:'upsert',rec:x,photos:ps});}});
       saveReports(a);renderMine();},
-    onDelete:()=>{saveReports(getReports().filter(x=>x.id!==id));renderMine();}});
+    onDelete:()=>{saveReports(getReports().filter(x=>x.id!==id));syncPush({op:'delete',id:id});renderMine();}});
 }
 /* ===== สำรอง / กู้คืนข้อมูล (เปลี่ยนเครื่อง) — ไฟล์ .json เก็บรายงาน + แพลน ของเครื่องนี้ ===== */
 function backupData(){
@@ -1130,10 +1131,33 @@ function restoreData(){
     rd.readAsText(f); };
   inp.click();
 }
-function bkRow(){ return '<div style="display:flex;gap:8px;margin:10px 0 0"><button type="button" onclick="backupData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">💾 สำรองข้อมูล</button><button type="button" onclick="restoreData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">♻️ กู้คืนข้อมูล</button></div>'; }
+function bkRow(){ setTimeout(syncBadge,50); return '<div id="syncInfo" style="font-size:12px;color:#2E7D32;margin:8px 0 0"></div>'+'<div style="display:flex;gap:8px;margin:10px 0 0"><button type="button" onclick="backupData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">💾 สำรองข้อมูล</button><button type="button" onclick="restoreData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">♻️ กู้คืนข้อมูล</button></div>'; }
 var BK_APP='tech', BK_KEYS=['kosintrial_reports','kosintrial_plans','kosintrial_planmeta','kosintrial_newtech','kosintrial_lasttech','kosintrial_hashes'];
 function bkName(){ try{ return (currentTech&&currentTech.name)||'ช่าง'; }catch(e){ return ''; } }
-function renderMine(){
+/* ===== ส่งเข้าระบบกลาง sales.kosin (Dashboard เห็น) — เข้าคิวในเครื่องก่อน ส่งไม่ผ่าน (ไม่มีเน็ต) จะลองใหม่เอง ===== */
+var SYNC_URL=(window.APP_CONFIG&&!window.APP_CONFIG.TRIAL&&window.APP_CONFIG.SYNC_URL)||'', SY_DB=null, syBusy=false;
+function syDb(){ return SY_DB||(SY_DB=new Promise(function(res,rej){ var q=indexedDB.open('kosintrial_sync_'+SY_APP,1); q.onupgradeneeded=function(){ q.result.createObjectStore('q',{keyPath:'k',autoIncrement:true}); }; q.onsuccess=function(){ res(q.result); }; q.onerror=function(){ rej(q.error); }; })); }
+function syAll(db){ return new Promise(function(res){ var a=[], c=db.transaction('q').objectStore('q').openCursor(); c.onsuccess=function(){ var x=c.result; if(x){ a.push(x.value); x.continue(); } else res(a); }; c.onerror=function(){ res(a); }; }); }
+function syncPush(o){ if(!SYNC_URL) return; o.app=SY_APP; if(o.rec){ o.rec=JSON.parse(JSON.stringify(o.rec)); delete o.rec.thumbs; delete o.rec.photos; }
+  syDb().then(function(db){ var t=db.transaction('q','readwrite'); t.objectStore('q').add(o); t.oncomplete=function(){ syncFlush(); }; }).catch(function(){}); }
+function syncFlush(){ if(!SYNC_URL||syBusy) return; syBusy=true;
+  syDb().then(function(db){ return syAll(db).then(function(items){
+    var stop=function(){ syBusy=false; syncBadge(); };
+    var step=function(i){ if(i>=items.length) return stop(); var it=items[i];
+      fetch(SYNC_URL,{method:'POST',body:JSON.stringify(it),headers:{'Content-Type':'text/plain;charset=utf-8'}}).then(function(r){ return r.json(); }).then(function(j){
+        if(j&&(j.ok||['notfound','app','op'].indexOf(j.err)>=0)){ var t=db.transaction('q','readwrite'); t.objectStore('q').delete(it.k); t.oncomplete=function(){ step(i+1); }; } else stop(); }).catch(stop); };
+    step(0); }); }).catch(function(){ syBusy=false; }); }
+function syncBadge(){ var el=document.getElementById('syncInfo'); if(!el||!SYNC_URL) return; syDb().then(syAll).then(function(a){ el.innerHTML=a.length?'⏳ รอส่งเข้าระบบ '+a.length+' รายการ (ต่อเน็ตแล้วจะส่งเอง) · <a href="#" onclick="syncFlush();return false">ส่งตอนนี้</a>':'✅ ส่งเข้าระบบครบแล้ว'; }).catch(function(){}); }
+if(SYNC_URL){ window.addEventListener('online',syncFlush); setInterval(syncFlush,60000); setTimeout(function(){ syBackfill(); syncFlush(); },1500); }
+var SY_APP='tech';
+function syBackfill(){ try{ if(localStorage.getItem('kosintrial_sync_bf1')) return; getReports().forEach(function(r){ syncPush({op:'upsert',rec:r,photos:{add:(r.thumbs||[]).filter(Boolean)}}); }); localStorage.setItem('kosintrial_sync_bf1','1'); }catch(e){} }
+var syStAt=0;   // ดึงผลตรวจจาก Dashboard มานับคะแนน
+function syncStatus(){ if(!SYNC_URL||!currentTech||Date.now()-syStAt<60000) return; syStAt=Date.now();
+  fetch(SYNC_URL+'?op=status&app=tech&who='+encodeURIComponent(currentTech.name)).then(function(r){return r.json();}).then(function(j){ if(!j||!j.ok) return;
+    var m={}; j.list.forEach(function(x){ m[x.id]=x; }); var a=getReports(), ch=0;
+    a.forEach(function(r){ var x=m[r.id]; if(x&&(r.status!==x.status||(r.reason||'')!==x.reason)){ r.status=x.status; r.reason=x.reason; r.reviewBy=x.by; ch=1; } });
+    if(ch){ saveReports(a); try{ if(!$('#scoreBody').closest('.hidden')) renderScore(); }catch(e){} } }).catch(function(){}); }
+function renderMine(){ syncStatus();
   if(!mineWeek)mineWeek=wkStart(todayKey());
   const ws=mineWeek,wm=weekOfMonth(ws),days=weekDays(ws),nRec=days.reduce((a,d)=>a+d.items.length,0);
   const cur=wkStart(todayKey()),isCur=ws===cur;
@@ -1239,9 +1263,9 @@ function renderScore(){
   $$('#scoreBody [data-m]').forEach(b=>b.onclick=()=>{if(b.disabled)return;scoreMonth=b.dataset.m;renderScore();});
   $$('#scoreBody [data-doc]').forEach(b=>b.onclick=()=>{docRecId=b.getAttribute('data-doc');activeCode=null;$('#photoInput').click();});
 }
-const APP_VER='v2.0 · 24 ต.ค. 69';
+const APP_VER='v2.1 · 25 ต.ค. 69';
 function verText(){return 'รายงานงานช่าง '+APP_VER+' · Developed by KOSIN';}
-function completeDoc(id){const all=getReports();const r=all.find(x=>x.id===id);if(r){r.status='รอตรวจ';r.docDeadline='';r.photoCount=(r.photoCount||0)+1;saveReports(all);}renderScore();if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'adddoc',id:id})}).catch(()=>{});}
+function completeDoc(id,f){const all=getReports();const r=all.find(x=>x.id===id);if(r&&f)resizeImageBlob(f,1280,0.68).then(d=>syncPush({op:'doc',id:id,dateKey:r.dateKey,tech:r.tech,add:[d]})).catch(()=>{});if(r){r.status='รอตรวจ';r.docDeadline='';r.photoCount=(r.photoCount||0)+1;saveReports(all);}renderScore();if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'adddoc',id:id})}).catch(()=>{});}
 
 function applyHolidayData(list){
   if(!list||!list.length)return;
