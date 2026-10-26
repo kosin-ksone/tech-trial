@@ -1131,7 +1131,7 @@ function restoreData(){
     rd.readAsText(f); };
   inp.click();
 }
-function bkRow(){ setTimeout(syncBadge,50); return '<div id="syncInfo" style="font-size:12px;color:#2E7D32;margin:8px 0 0"></div>'+'<div style="display:flex;gap:8px;margin:10px 0 0"><button type="button" onclick="backupData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">💾 สำรองข้อมูล</button><button type="button" onclick="restoreData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">♻️ กู้คืนข้อมูล</button></div>'; }
+function bkRow(){ setTimeout(syncBadge,50); return mailNowBtn()+'<div id="syncInfo" style="font-size:12px;color:#2E7D32;margin:8px 0 0"></div>'+'<div style="display:flex;gap:8px;margin:10px 0 0"><button type="button" onclick="backupData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">💾 สำรองข้อมูล</button><button type="button" onclick="restoreData()" style="flex:1;padding:11px;border-radius:10px;border:1.5px dashed var(--gold);background:#fff;font:inherit;font-weight:700;cursor:pointer">♻️ กู้คืนข้อมูล</button></div>'; }
 var BK_APP='tech', BK_KEYS=['kosintrial_reports','kosintrial_plans','kosintrial_planmeta','kosintrial_newtech','kosintrial_lasttech','kosintrial_hashes'];
 function bkName(){ try{ return (currentTech&&currentTech.name)||'ช่าง'; }catch(e){ return ''; } }
 /* ===== ส่งเข้าระบบกลาง sales.kosin (Dashboard เห็น) — เข้าคิวในเครื่องก่อน ส่งไม่ผ่าน (ไม่มีเน็ต) จะลองใหม่เอง ===== */
@@ -1157,6 +1157,25 @@ function syncStatus(){ if(!SYNC_URL||!currentTech||Date.now()-syStAt<60000) retu
     var m={}; j.list.forEach(function(x){ m[x.id]=x; }); var a=getReports(), ch=0;
     a.forEach(function(r){ var x=m[r.id]; if(x&&(r.status!==x.status||(r.reason||'')!==x.reason)){ r.status=x.status; r.reason=x.reason; r.reviewBy=x.by; ch=1; } });
     if(ch){ saveReports(a); try{ if(!$('#scoreBody').closest('.hidden')) renderScore(); }catch(e){} } }).catch(function(){}); }
+/* ===== 📧 ส่งอีเมลรายงานตอนนี้ (ถึง workreport + KOSIE · CC ช่าง) — ไม่กด ระบบส่งให้ตอน 20:00 ===== */
+function mailNowBtn(){ if(!SYNC_URL) return '';
+  return '<button type="button" onclick="mailNow(this)" style="width:100%;margin:10px 0 0;padding:13px;border-radius:12px;border:0;background:var(--brand,var(--brand-dark));color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer">📧 ส่งอีเมลรายงานตอนนี้</button>'
+   +'<div style="font-size:11.5px;color:var(--mut);text-align:center;margin-top:4px">ถึง workreport + KOSIE · CC อีเมลของคุณ · ส่งเฉพาะรายงานที่ยังไม่ได้ส่ง · ไม่กด ระบบส่งให้ตอน 20:00</div>'; }
+async function mailNow(btn){
+  if(!currentTech) return; btn.disabled=true; const lab=btn.textContent; btn.textContent='⏳ กำลังส่ง…'; btn.style.opacity='.75';
+  const done=(icon,title,body)=>{btn.disabled=false;btn.textContent=lab;btn.style.opacity='';showModal({icon:icon,title:title,body:body,buttons:[{label:'รับทราบ',val:'ok',cls:'pri'}]});};
+  try{
+    syncFlush(); let left=1;   // รอให้รายงานในคิวขึ้นระบบก่อน
+    for(let i=0;i<45;i++){ left=(await syDb().then(syAll)).length; if(!left) break; if(!syBusy) syncFlush(); await new Promise(r=>setTimeout(r,2000)); }
+    if(left) return done('📶','ยังส่งรายงานเข้าระบบไม่ครบ','เหลือ '+left+' รายการในเครื่อง — เช็กอินเทอร์เน็ตแล้วกดใหม่อีกครั้งนะคะ');
+    const j=await fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({app:'tech',op:'mailnow',who:currentTech.name})}).then(r=>r.json());
+    if(j.ok&&j.n) done('✅','ส่งอีเมลแล้ว '+j.n+' งาน','ถึง workreport.kosin + KOSIE'+(j.cc?' · สำเนาถึง '+j.cc:'')+' (แนบ PDF)');
+    else if(j.ok) done('📭','ไม่มีรายงานใหม่ที่ต้องส่ง','รายงานที่บันทึกไว้ส่งอีเมลไปแล้ว — บันทึกงานใหม่แล้วค่อยกดส่งนะคะ');
+    else if(j.err==='off') done('⏸️','ระบบอีเมลยังไม่เปิด','แจ้งแอดมินนะคะ');
+    else if(j.err==='quota') done('⏳','วันนี้ส่งอีเมลครบโควตาแล้ว','ระบบจะส่งให้อัตโนมัติรอบถัดไปค่ะ');
+    else done('⚠️','ส่งอีเมลไม่สำเร็จ',String(j.err||'')+' — ลองใหม่อีกครั้ง');
+  }catch(e){ done('📶','ส่งไม่สำเร็จ','เช็กอินเทอร์เน็ตแล้วกดใหม่อีกครั้งนะคะ'); }
+}
 function renderMine(){ syncStatus();
   if(!mineWeek)mineWeek=wkStart(todayKey());
   const ws=mineWeek,wm=weekOfMonth(ws),days=weekDays(ws),nRec=days.reduce((a,d)=>a+d.items.length,0);
@@ -1263,7 +1282,7 @@ function renderScore(){
   $$('#scoreBody [data-m]').forEach(b=>b.onclick=()=>{if(b.disabled)return;scoreMonth=b.dataset.m;renderScore();});
   $$('#scoreBody [data-doc]').forEach(b=>b.onclick=()=>{docRecId=b.getAttribute('data-doc');activeCode=null;$('#photoInput').click();});
 }
-const APP_VER='v2.2 · 26 ต.ค. 69';
+const APP_VER='v2.3 · 26 ต.ค. 69';
 function verText(){return 'รายงานงานช่าง '+APP_VER+' · Developed by KOSIN';}
 function completeDoc(id,f){const all=getReports();const r=all.find(x=>x.id===id);if(r&&f)resizeImageBlob(f,1280,0.68).then(d=>syncPush({op:'doc',id:id,dateKey:r.dateKey,tech:r.tech,add:[d]})).catch(()=>{});if(r){r.status='รอตรวจ';r.docDeadline='';r.photoCount=(r.photoCount||0)+1;saveReports(all);}renderScore();if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'adddoc',id:id})}).catch(()=>{});}
 
