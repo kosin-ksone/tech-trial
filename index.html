@@ -1263,7 +1263,7 @@ function renderScore(){
   $$('#scoreBody [data-m]').forEach(b=>b.onclick=()=>{if(b.disabled)return;scoreMonth=b.dataset.m;renderScore();});
   $$('#scoreBody [data-doc]').forEach(b=>b.onclick=()=>{docRecId=b.getAttribute('data-doc');activeCode=null;$('#photoInput').click();});
 }
-const APP_VER='v2.1 · 25 ต.ค. 69';
+const APP_VER='v2.2 · 26 ต.ค. 69';
 function verText(){return 'รายงานงานช่าง '+APP_VER+' · Developed by KOSIN';}
 function completeDoc(id,f){const all=getReports();const r=all.find(x=>x.id===id);if(r&&f)resizeImageBlob(f,1280,0.68).then(d=>syncPush({op:'doc',id:id,dateKey:r.dateKey,tech:r.tech,add:[d]})).catch(()=>{});if(r){r.status='รอตรวจ';r.docDeadline='';r.photoCount=(r.photoCount||0)+1;saveReports(all);}renderScore();if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'adddoc',id:id})}).catch(()=>{});}
 
@@ -1497,12 +1497,27 @@ function renderPlanMonth(){
     const bg=di.off?'background:var(--danger-bg)':(c?'background:var(--brand-tint)':'background:var(--card)');
     h+='<div class="mcell" data-dk="'+dk+'" style="cursor:pointer;border:'+(dk===tk?'1.5px solid var(--green)':'0.5px solid var(--line)')+';border-radius:8px;min-height:46px;padding:3px;'+bg+'"><div style="font-size:11px;font-weight:500;'+(di.off?'color:var(--danger)':'')+'">'+dn+'</div>'+(c?'<div style="font-size:9px;color:var(--brand-dark);margin-top:2px">📍'+c+'</div>':'')+'</div>';
   }
-  h+='</div><div style="font-size:10.5px;color:var(--mut);margin-top:10px;text-align:center">แตะวันเพื่อดู/แก้แพลน · 🟧 มีแพลน · 🟥 วันหยุด</div>'+planDlButtons();
+  h+='</div><div style="font-size:10.5px;color:var(--mut);margin-top:10px;text-align:center">'+(PLAN_SHEET?'แตะวันเพื่อดูแพลน':'แตะวันเพื่อดู/แก้แพลน')+' · 🟧 มีแพลน · 🟥 วันหยุด</div>'+planDlButtons();
+  if(PLAN_SHEET)h=sheetPlanBar()+h;
   $('#planBody').innerHTML=h;bindPlanDl();
   $$('#planBody [data-mnav]').forEach(b=>b.onclick=()=>{const d=new Date(planMonth+'T00:00:00');d.setMonth(d.getMonth()+parseInt(b.dataset.mnav));planMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';renderPlan();});
   $$('#planBody .mcell').forEach(el=>el.onclick=()=>{planWeek=sundayStart(el.dataset.dk);planView='week';renderPlan();});
 }
-function loadPlans(){try{return JSON.parse(localStorage.getItem('kosintrial_plans')||'{}')}catch(e){return{}}}
+/* ===== แพลนจากชีต "ตารางงานช่าง Service Engineer" — ช่างกรอกในชีตแบบเดิม แอปแสดงให้ดู (อ่านอย่างเดียว) ===== */
+const PLAN_SHEET=!!SYNC_URL, PLAN_SHEET_URL='https://docs.google.com/spreadsheets/d/1ocR4eRjUBS0UT8mXqJbQ8acQSJbyMHPzEVL_HrfDFdU/edit';
+function sheetPlanStore(){try{return JSON.parse(localStorage.getItem('kosintrial_splan')||'{}')}catch(e){return{}}}
+let splanAt=0;
+function fetchSheetPlan(force){if(!PLAN_SHEET||!currentTech||(!force&&Date.now()-splanAt<120000))return;splanAt=Date.now();
+  fetch(SYNC_URL+'?op=splan&who='+encodeURIComponent(currentTech.name)+'&nick='+encodeURIComponent(currentTech.nick||'')).then(r=>r.json()).then(j=>{if(!j||!j.ok)return;
+    localStorage.setItem('kosintrial_splan',JSON.stringify({who:currentTech.name,label:j.label,at:new Date().toISOString(),days:j.days||{}}));
+    if(!$('#planBody').closest('.hidden'))renderPlan();}).catch(()=>{});}
+function loadPlans(){
+  if(PLAN_SHEET){const st=sheetPlanStore(),o={};if(!currentTech||st.who!==currentTech.name)return o;const me=o[currentTech.name]={};
+    Object.keys(st.days||{}).forEach(dk=>{const ws=sundayStart(dk);me[ws]=me[ws]||{};me[ws][dk]={};['เช้า','บ่าย'].forEach(s=>{const t=st.days[dk][s];if(t)me[ws][dk][s]={hospital:t,detail:''};});});
+    return o;}
+  try{return JSON.parse(localStorage.getItem('kosintrial_plans')||'{}')}catch(e){return{}}}
+function sheetPlanBar(){const st=sheetPlanStore(),at=st.at&&st.who===currentTech.name?new Date(st.at):null;
+  return '<div style="display:flex;gap:8px;align-items:center;background:var(--brand-tint);color:var(--brand-dark);border-radius:9px;padding:8px 11px;margin-bottom:10px;font-size:11.5px"><div style="flex:1">📋 แพลนดึงจาก<b>ชีตตารางงานช่าง</b> · กรอก/แก้ที่ชีต'+(at?' · อัปเดต '+String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):' · กำลังโหลด…')+(st.label?'<br><span style="color:var(--mut)">ชื่อในชีต: '+st.label+'</span>':'')+'</div><a href="'+PLAN_SHEET_URL+'" target="_blank" rel="noopener" class="btn" style="width:auto;padding:6px 10px;font-size:11.5px;text-decoration:none">เปิดชีต</a></div>';}
 function savePlans(p){localStorage.setItem('kosintrial_plans',JSON.stringify(p));}
 function myPlan(ws){const a=loadPlans();return (a[currentTech.name]&&a[currentTech.name][ws])||{};}
 function setPlanSlot(ws,dk,slot,val){const a=loadPlans();a[currentTech.name]=a[currentTech.name]||{};a[currentTech.name][ws]=a[currentTech.name][ws]||{};a[currentTech.name][ws][dk]=a[currentTech.name][ws][dk]||{};if(val)a[currentTech.name][ws][dk][slot]=val;else{delete a[currentTech.name][ws][dk][slot];if(!Object.keys(a[currentTech.name][ws][dk]).length)delete a[currentTech.name][ws][dk];}savePlans(a);if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'plan',tech:currentTech.name,weekStart:ws,plan:myPlan(ws)})}).catch(()=>{});}
@@ -1521,6 +1536,7 @@ function planMeta(ws){const m=loadPlanMeta();return (m[currentTech.name]&&m[curr
 function logPlanChange(ws,dk,slot,reason){const m=loadPlanMeta();m[currentTech.name]=m[currentTech.name]||{};m[currentTech.name][ws]=m[currentTech.name][ws]||{changes:0,log:[]};m[currentTech.name][ws].changes++;m[currentTech.name][ws].log.push({ts:new Date().toISOString(),dk:dk,slot:slot,reason:reason||''});localStorage.setItem('kosintrial_planmeta',JSON.stringify(m));
   if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'planchange',tech:currentTech.name,weekStart:ws,dateKey:dk,slot:slot,reason:reason||''})}).catch(()=>{});}
 function renderPlan(){
+  fetchSheetPlan();
   if(planView==='month')return renderPlanMonth();
   if(!planWeek)planWeek=sundayStart();
   const ws=planWeek, wsD=new Date(ws+'T00:00:00'), wEnd=new Date(wsD);wEnd.setDate(wEnd.getDate()+6);
@@ -1532,19 +1548,20 @@ function renderPlan(){
     '<button class="btn" style="width:auto;padding:9px 13px" data-nav="-1">◄</button>'+
     '<div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:600">'+fmtD(wsD)+' – '+fmtD(wEnd)+'</div><div style="font-size:11px;color:var(--mut)">'+(ws===thisWs?'สัปดาห์นี้':(ws>thisWs?'สัปดาห์หน้า':'ผ่านมาแล้ว'))+'</div></div>'+
     '<button class="btn" style="width:auto;padding:9px 13px" data-nav="1">►</button></div>';
-  if(ws>=thisWs)h+='<div style="display:flex;gap:7px;align-items:center;background:var(--amber-bg);color:var(--amber);border-radius:9px;padding:8px 11px;margin-bottom:10px;font-size:11.5px">⏰ ส่งแพลนภายในเสาร์ก่อนเที่ยงคืน · แก้ได้ตลอดสัปดาห์</div>';
+  if(PLAN_SHEET)h+=sheetPlanBar();
+  else if(ws>=thisWs)h+='<div style="display:flex;gap:7px;align-items:center;background:var(--amber-bg);color:var(--amber);border-radius:9px;padding:8px 11px;margin-bottom:10px;font-size:11.5px">⏰ ส่งแพลนภายในเสาร์ก่อนเที่ยงคืน · แก้ได้ตลอดสัปดาห์</div>';
   for(let i=0;i<7;i++){const dd=new Date(wsD);dd.setDate(dd.getDate()+i);const dk=dkey(dd);const di=dayInfo(dk);
     const badge=di.off?'<span style="font-size:10px;background:var(--danger-bg);color:var(--danger);padding:1px 7px;border-radius:20px;margin-left:6px">🌴 '+di.name+'</span>':(di.special?'<span style="font-size:10px;background:var(--accent-bg);color:var(--accent);padding:1px 7px;border-radius:20px;margin-left:6px">💼 '+di.name+'</span>':'');
     h+='<div class="card" style="padding:9px 12px;margin-bottom:7px'+(di.off?';opacity:.7':'')+'"><div style="font-size:12.5px;font-weight:600;margin-bottom:2px">'+THAI_DOW[i]+' '+dd.getDate()+badge+'</div>';
     ['เช้า','บ่าย'].forEach(slot=>{const e=(plan[dk]||{})[slot];
-      h+='<div class="planslot" data-dk="'+dk+'" data-slot="'+slot+'" style="display:flex;align-items:center;gap:8px;padding:7px 2px;cursor:pointer;border-top:0.5px dashed var(--line)"><span style="font-size:11px;color:var(--mut);width:30px">'+slot+'</span>'+(e?'<span style="flex:1;font-size:12px">📍 '+e.hospital+(e.detail?' · <span style="color:var(--mut)">'+e.detail+'</span>':'')+'</span><i class="ti ti-pencil" style="color:var(--mut2);font-size:14px"></i>':'<span style="flex:1;font-size:12px;color:var(--accent)">＋ เพิ่ม รพ.</span>')+'</div>';
+      h+='<div class="planslot" data-dk="'+dk+'" data-slot="'+slot+'" style="display:flex;align-items:center;gap:8px;padding:7px 2px;cursor:pointer;border-top:0.5px dashed var(--line)"><span style="font-size:11px;color:var(--mut);width:30px">'+slot+'</span>'+(e?'<span style="flex:1;font-size:12px">📍 '+e.hospital+(e.detail?' · <span style="color:var(--mut)">'+e.detail+'</span>':'')+'</span>'+(PLAN_SHEET?'':'<i class="ti ti-pencil" style="color:var(--mut2);font-size:14px"></i>')+'':(PLAN_SHEET?'<span style="flex:1;font-size:12px;color:var(--mut2)">—</span>':'<span style="flex:1;font-size:12px;color:var(--accent)">＋ เพิ่ม รพ.</span>'))+'</div>';
     });
     h+='</div>';
   }
-  h+=planSummaryHtml(ws)+'<div style="font-size:12px;color:var(--mut);margin-top:12px;text-align:center">โหลดแพลน อา '+fmtD(kd(ws))+' – ส '+fmtD(kd(addDays(ws,6)))+'</div><div class="dlrow" style="margin-top:6px"><button class="btn" data-pdl="'+ws+'">⬇ PDF</button><button class="btn" data-pxl="'+ws+'">📊 Excel</button></div>';
+  h+=(PLAN_SHEET?'':planSummaryHtml(ws))+'<div style="font-size:12px;color:var(--mut);margin-top:12px;text-align:center">โหลดแพลน อา '+fmtD(kd(ws))+' – ส '+fmtD(kd(addDays(ws,6)))+'</div><div class="dlrow" style="margin-top:6px"><button class="btn" data-pdl="'+ws+'">⬇ PDF</button><button class="btn" data-pxl="'+ws+'">📊 Excel</button></div>';
   $('#planBody').innerHTML=h;bindPlanDl();
   $$('#planBody [data-nav]').forEach(b=>b.onclick=()=>{const dd=new Date(ws+'T00:00:00');dd.setDate(dd.getDate()+7*parseInt(b.dataset.nav));planWeek=dkey(dd);renderPlan();});
-  $$('#planBody .planslot').forEach(el=>el.onclick=()=>editPlanSlot(ws,el.dataset.dk,el.dataset.slot));
+  $$('#planBody .planslot').forEach(el=>el.onclick=()=>PLAN_SHEET?showModal({icon:'📋',title:'แพลนกรอกที่ชีตตารางงานช่าง',body:'เพิ่ม/แก้แพลน ทำในชีต "ตารางงานช่าง Service Engineer" แบบเดิม — แอปดึงมาแสดงให้เอง',buttons:[{label:'เปิดชีต',val:'open',cls:'pri'},{label:'ปิด',val:'x'}]}).then(a=>{if(a&&a.val==='open')window.open(PLAN_SHEET_URL,'_blank');}):editPlanSlot(ws,el.dataset.dk,el.dataset.slot));
   const ub=$('#upcomingBtn');if(ub)ub.onclick=()=>$('#upcomingBox').classList.toggle('hidden');
   const pj=$('#planJump');if(pj)pj.onchange=()=>{if(pj.value){planWeek=sundayStart(pj.value);renderPlan();}};
   const bc=$('#backToCal');if(bc)bc.onclick=()=>{planView='month';renderPlan();};

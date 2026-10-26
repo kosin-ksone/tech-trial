@@ -71,7 +71,7 @@ td.n,th.n{text-align:right}tr.click{cursor:pointer}tr.click:hover td{background:
   </div>
   <div class="demo" id="demoBar"></div>
   <div class="tabs" id="tabs">
-    <button data-t="ov" class="on">📊 ภาพรวม</button><button data-t="rv">✅ ตรวจรายงาน <span id="nWait" class="badge b-wait"></span></button><button data-t="sc">🏆 คะแนนช่าง</button><button data-t="pt">🛵 ค่าจุด กทม.+ปริมณฑล</button><button data-t="wk">📄 รายงานรายสัปดาห์</button>
+    <button data-t="ov" class="on">📊 ภาพรวม</button><button data-t="rv">✅ ตรวจรายงาน <span id="nWait" class="badge b-wait"></span></button><button data-t="sc">🏆 คะแนนช่าง</button><button data-t="ot">📝 งานอื่นๆ (ยังไม่มีคะแนน) <span id="nOt" class="badge b-wait"></span></button><button data-t="pt">🛵 ค่าจุด กทม.+ปริมณฑล</button><button data-t="pl">📅 แพลนช่าง</button><button data-t="wk">📄 รายงานรายสัปดาห์</button>
   </div>
   <div class="wrap" id="view"></div>
 </div>
@@ -156,7 +156,7 @@ function vReview(){
   let h='<div class="filters"><select id="fTech">'+techOpts(fTech,true)+'</select><div class="seg" id="fStat">'+['รอตรวจ','ผ่าน','ไม่ผ่าน','ทั้งหมด'].map(s=>'<button class="'+(s===fStat?'on':'')+'" data-s="'+s+'">'+s+'</button>').join('')+'</div>'+
     (fStat==='รอตรวจ'&&list.length?'<button class="btn ok" id="okAll">✅ ผ่านทั้งหมดที่แสดง ('+list.filter(r=>r.status==='รอตรวจ').length+')</button>':'')+'<span style="color:var(--mut);font-size:12px">'+list.length+' งาน</span></div>';
   h+='<div class="note">คะแนน และ ค่าจุด นับเฉพาะงานที่ <b>ผ่าน</b> · ไม่ผ่าน = ไม่นับ (ช่างเห็นเหตุผลในแอป — เมื่อต่อระบบจริง)</div>';
-  list.slice(0,150).forEach(r=>{const t=TECHS.find(x=>x.name===r.tech)||{};
+  list.slice(0,150).forEach(r=>{const t=TECHS.find(x=>x.name===r.tech)||{name:r.tech||'-'};
     h+='<div class="rec"><div><div class="h">📍 '+esc(r.hospital)+' '+badge(r.status)+(r.lateDays?' <span class="badge b-late">ส่งสาย '+r.lateDays+' วัน</span>':'')+'</div><div class="m">'+thD(r.dateKey)+' · '+esc(nick(t))+' ('+esc(r.tech)+')</div>'+
       '<div class="d"><b>'+r.code+'</b> '+esc(r.label)+'</div>'+(r.desc?'<div class="d" style="color:#555">'+esc(r.desc)+'</div>':'')+(r.note?'<div class="p">⚠ '+esc(r.note)+'</div>':'')+
       '<div class="ph">'+r.photos.map(p=>'<img loading="lazy" referrerpolicy="no-referrer" src="'+p+'">').join('')+'</div></div>'+
@@ -176,15 +176,54 @@ function vReview(){
   const oa=$('#okAll');if(oa)oa.onclick=()=>{list.filter(r=>r.status==='รอตรวจ').forEach(r=>set(r.id,'ผ่าน'));vReview();count();};
   document.querySelectorAll('.rec .ph img').forEach(im=>im.onclick=()=>{const o=document.createElement('div');o.className='ov';o.innerHTML='<img src="'+im.src+'">';o.onclick=()=>o.remove();document.body.appendChild(o);});
 }
+/* ===== งานอื่นๆ (K1 · ยังไม่มีคะแนน) — เก็บไว้ดูว่าใครทำอะไร จะได้เพิ่มเป็นรายการงาน + ให้คะแนนในอนาคต ===== */
+let otAll=false;
+const otText=r=>(r.desc||'').trim()||String(r.label||'').replace(/^งานอื่นๆ\s*—\s*/,'').trim()||'(ไม่ได้เขียนรายละเอียด)';
+const otList=()=>RECS.filter(r=>r.code==='K1'&&(otAll||inMonth(r)));
+function vOther(){
+  const L=otList().sort((a,b)=>a.dateKey<b.dateKey?1:-1),who={},grp={};
+  L.forEach(r=>{(who[r.tech]=who[r.tech]||[]).push(r);const k=otText(r).toLowerCase().replace(/\s+/g,' ');(grp[k]=grp[k]||{t:otText(r),n:0,techs:new Set(),last:''});grp[k].n++;grp[k].techs.add(r.tech);if(r.dateKey>grp[k].last)grp[k].last=r.dateKey;});
+  const tn=n=>{const t=TECHS.find(x=>x.name===n);return t?nick(t):n.split(' ')[0];};
+  let h='<div class="filters"><button class="btn'+(otAll?'':' pri')+'" id="otM">เดือนที่เลือก</button><button class="btn'+(otAll?' pri':'')+'" id="otA">ทั้งหมด (6 เดือนล่าสุด)</button><span style="flex:1"></span><button class="btn" id="otX">⬇ Excel</button></div>';
+  h+='<div class="cards"><div class="kpi"><div class="l">งานอื่นๆ ทั้งหมด</div><div class="v">'+L.length+'</div><div class="s">ครั้ง</div></div><div class="kpi"><div class="l">ช่างที่มีงานอื่นๆ</div><div class="v">'+Object.keys(who).length+'</div><div class="s">คน</div></div><div class="kpi"><div class="l">ชนิดงาน (ไม่นับซ้ำ)</div><div class="v">'+Object.keys(grp).length+'</div><div class="s">แบบ</div></div></div>';
+  if(!L.length){$('#view').innerHTML=h+'<div class="box empty">ยังไม่มีงานอื่นๆ ในช่วงนี้</div>';otBind([]);return;}
+  h+='<div class="box"><h3>👷 ใครมีบ้าง</h3><table><tr><th>ช่าง</th><th class="n">ครั้ง</th><th>งานที่เขียนมา</th></tr>'+Object.keys(who).sort((a,b)=>who[b].length-who[a].length).map(n=>'<tr><td><b>'+esc(tn(n))+'</b><div style="font-size:11.5px;color:var(--mut)">'+esc(n)+'</div></td><td class="n"><span class="chip c-ok">'+who[n].length+'</span></td><td>'+who[n].map(r=>'<div style="margin:2px 0">• '+esc(otText(r))+' <span style="color:var(--mut);font-size:11.5px">— '+thD(r.dateKey)+' · '+esc(r.hospital)+'</span></div>').join('')+'</td></tr>').join('')+'</table></div>';
+  h+='<div class="box"><h3>🔁 งานที่เจอบ่อย (ไว้พิจารณาเพิ่มเป็นรายการ + ให้คะแนน)</h3><table><tr><th>งาน</th><th class="n">ครั้ง</th><th>ช่าง</th><th>ล่าสุด</th></tr>'+Object.values(grp).sort((a,b)=>b.n-a.n).map(g=>'<tr><td>'+esc(g.t)+'</td><td class="n"><b>'+g.n+'</b></td><td>'+[...g.techs].map(tn).map(esc).join(', ')+'</td><td>'+thD(g.last)+'</td></tr>').join('')+'</table></div>';
+  $('#view').innerHTML=h;otBind(L);
+}
+function otBind(L){$('#otM').onclick=()=>{otAll=false;vOther();};$('#otA').onclick=()=>{otAll=true;vOther();};
+  $('#otX').onclick=()=>{const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['วันที่','ช่าง','ชื่อเล่น','สถานที่','งานที่ทำ','ปัญหา','สถานะ','ผู้ตรวจ']].concat(L.map(r=>{const t=TECHS.find(x=>x.name===r.tech);return [r.dateKey,r.tech,t?nick(t):'',r.hospital,otText(r),r.note||'',r.status,r.by||''];}));
+    const b=new Blob(['﻿'+rows.map(x=>x.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='งานอื่นๆ-ช่าง-'+(otAll?'ทั้งหมด':month)+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),2000);};}
+/* ===== แพลนช่าง — ดึงจากชีต "ตารางงานช่าง Service Engineer" (ช่างกรอกในชีตแบบเดิม) ===== */
+const PLAN_SHEET_URL='https://docs.google.com/spreadsheets/d/1ocR4eRjUBS0UT8mXqJbQ8acQSJbyMHPzEVL_HrfDFdU/edit';
+let SPLAN=null,splanErr='',plStart=monOf(TODAY),plQ='';
+function loadSplan(){if(!SYNC_URL)return;splanErr='';fetch(SYNC_URL+'?op=splan').then(r=>r.json()).then(j=>{if(!j.ok)throw 0;SPLAN=j.plans||{};if(tab==='pl')vPlan();}).catch(()=>{splanErr='โหลดแพลนไม่สำเร็จ';if(tab==='pl')vPlan();});}
+function vPlan(){
+  const days=Array.from({length:7},(_,i)=>addD(plStart,i));
+  let h='<div class="filters"><button class="btn" id="plPrev">◀</button><b>'+thD(days[0])+' – '+thD(days[6])+'</b><button class="btn" id="plNext">▶</button><button class="btn" id="plNow">สัปดาห์นี้</button><input id="plQ" placeholder="🔎 ค้นชื่อช่าง" value="'+esc(plQ)+'" style="width:150px"><span style="flex:1"></span><button class="btn" id="plRe">โหลดใหม่</button><a class="btn" href="'+PLAN_SHEET_URL+'" target="_blank" rel="noopener">เปิดชีต</a></div>';
+  if(!SYNC_URL){$('#view').innerHTML=h+'<div class="box empty">ยังไม่ได้ต่อระบบ</div>';return;}
+  if(!SPLAN){$('#view').innerHTML=h+'<div class="box empty">'+(splanErr||'⏳ กำลังโหลดแพลนจากชีต…')+'</div>';plBind();if(!splanErr)loadSplan();return;}
+  const names=Object.keys(SPLAN).filter(n=>days.some(d=>SPLAN[n][d])).filter(n=>!plQ||n.indexOf(plQ)>=0);
+  h+='<div class="note">ดึงจากชีต "ตารางงานช่าง Service Engineer" · ช่างกรอก/แก้ที่ชีต · อัปเดตทุก 5 นาที · มี ✓ = ส่งรายงานวันนั้นแล้ว</div><div class="box"><table style="min-width:1100px"><tr><th style="width:120px">ช่าง</th>'+days.map(d=>'<th>'+thD(d)+'</th>').join('')+'</tr>';
+  names.forEach(n=>{const base=n.trim().split(/[\s(\-–]/)[0],t=TECHS.find(x=>x.name.split(' ')[0]===base&&(n.indexOf('(')<0||!x.nick||n.indexOf(x.nick)>=0))||TECHS.find(x=>x.name.split(' ')[0]===base);
+    h+='<tr><td><b>'+esc(n)+'</b></td>'+days.map(d=>{const c=SPLAN[n][d]||{},off=/วันหยุด|ลา/.test((c['เช้า']||'')+(c['บ่าย']||'')),done=t&&RECS.some(r=>r.tech===t.name&&r.dateKey===d);
+      return '<td style="font-size:11.5px;vertical-align:top;'+(off?'background:#FFF6D6;':'')+'">'+(done?'<span class="chip c-ok" style="float:right">✓</span>':'')+['เช้า','บ่าย'].map(s=>c[s]?'<div style="margin-bottom:3px"><b style="color:var(--mut);font-size:10.5px">'+s+'</b> '+esc(c[s])+'</div>':'').join('')+'</td>';}).join('')+'</tr>';});
+  if(!names.length)h+='<tr><td colspan="8" class="empty">ไม่มีแพลนในสัปดาห์นี้</td></tr>';
+  $('#view').innerHTML=h+'</table></div>';plBind();
+}
+function plBind(){$('#plPrev').onclick=()=>{plStart=addD(plStart,-7);vPlan();};$('#plNext').onclick=()=>{plStart=addD(plStart,7);vPlan();};$('#plNow').onclick=()=>{plStart=monOf(TODAY);vPlan();};
+  $('#plRe').onclick=()=>{SPLAN=null;vPlan();};const q=$('#plQ');q.oninput=()=>{plQ=q.value.trim();const p=q.selectionStart;vPlan();const q2=$('#plQ');q2.focus();q2.setSelectionRange(p,p);};}
 function vScore(){
   const rows=TECHS.map(t=>{const m=RECS.filter(r=>r.tech===t.name&&inMonth(r));const ok=m.filter(r=>r.status==='ผ่าน');
-    return {t:t,pts:ok.reduce((a,r)=>a+r.pt,0),nOk:ok.length,wait:m.filter(r=>r.status==='รอตรวจ'||r.status==='รอเอกสาร').reduce((a,r)=>a+r.pt,0),no:m.filter(r=>r.status==='ไม่ผ่าน').length,
+    return {t:t,pts:ok.reduce((a,r)=>a+r.pt,0),nOk:ok.length,wait:m.filter(r=>r.status==='รอตรวจ'||r.status==='รอเอกสาร').reduce((a,r)=>a+r.pt,0),no:m.filter(r=>r.status==='ไม่ผ่าน').length,k1:m.filter(r=>r.code==='K1').length,
       grp:ok.reduce((a,r)=>{a[r.code[0]]=(a[r.code[0]]||0)+r.pt;return a;},{})};}).sort((a,b)=>b.pts-a.pts);
   const max=Math.max(1,...rows.map(r=>r.pts));
-  let h='<div class="note">คะแนนเดือน '+MONF[+month.slice(5)-1]+' '+(+month.slice(0,4)+543)+' · นับเฉพาะงานที่ผ่านตรวจ · "รอตรวจ" = คะแนนที่จะได้ถ้าผ่าน</div><div class="box"><table><tr><th>#</th><th>ช่าง</th><th>เขต</th><th class="n">คะแนน</th><th></th><th class="n">งานผ่าน</th><th class="n">ไม่ผ่าน</th><th class="n">รอตรวจ (คะแนน)</th><th>แยกกลุ่ม (A–K)</th></tr>';
-  rows.forEach((r,i)=>{h+='<tr class="click" data-tech="'+esc(r.t.name)+'"><td>'+(i+1)+'</td><td><b>'+esc(nick(r.t))+'</b> <span style="color:var(--mut);font-size:12px">'+esc(r.t.name)+'</span></td><td>'+(isBkk(r.t)?'กทม.':'ตจว.')+'</td><td class="n"><b>'+r.pts+'</b></td><td style="width:18%"><div class="bar"><i style="width:'+(r.pts/max*100)+'%"></i></div></td><td class="n">'+r.nOk+'</td><td class="n">'+(r.no||'')+'</td><td class="n">'+(r.wait||'')+'</td><td style="font-size:12px;color:#555">'+Object.keys(r.grp).sort().map(g=>g+' '+r.grp[g]).join(' · ')+'</td></tr>';});
-  $('#view').innerHTML=h+'</table></div>';
+  let h='<div class="note">คะแนนเดือน '+MONF[+month.slice(5)-1]+' '+(+month.slice(0,4)+543)+' · นับเฉพาะงานที่ผ่านตรวจ · "รอตรวจ" = คะแนนที่จะได้ถ้าผ่าน</div><div class="box"><table><tr><th>#</th><th>ช่าง</th><th>เขต</th><th class="n">คะแนน</th><th></th><th class="n">งานผ่าน</th><th class="n">ไม่ผ่าน</th><th class="n">รอตรวจ (คะแนน)</th><th class="n">งานไม่มีคะแนน<br><span style="font-weight:400;font-size:11px">(งานอื่นๆ K1)</span></th><th>แยกกลุ่ม (A–K)</th></tr>';
+  rows.forEach((r,i)=>{h+='<tr class="click" data-tech="'+esc(r.t.name)+'"><td>'+(i+1)+'</td><td><b>'+esc(nick(r.t))+'</b> <span style="color:var(--mut);font-size:12px">'+esc(r.t.name)+'</span></td><td>'+(isBkk(r.t)?'กทม.':'ตจว.')+'</td><td class="n"><b>'+r.pts+'</b></td><td style="width:18%"><div class="bar"><i style="width:'+(r.pts/max*100)+'%"></i></div></td><td class="n">'+r.nOk+'</td><td class="n">'+(r.no||'')+'</td><td class="n">'+(r.wait||'')+'</td><td class="n">'+(r.k1?'<a href="#" data-k1="1" style="font-weight:700;color:var(--brand)">'+r.k1+' งาน</a>':'')+'</td><td style="font-size:12px;color:#555">'+Object.keys(r.grp).sort().map(g=>g+' '+r.grp[g]).join(' · ')+'</td></tr>';});
+  const k1=rows.reduce((a,r)=>a+r.k1,0);
+  $('#view').innerHTML=h+'</table>'+(k1?'<div style="font-size:12px;color:var(--mut);margin-top:6px">งานไม่มีคะแนนรวม <b>'+k1+'</b> งาน · ระบบเก็บไว้ทุกรายการ ดูรวมได้ที่แท็บ <a href="#" data-k1="1">📝 งานอื่นๆ</a></div>':'')+'</div>';
   document.querySelectorAll('[data-tech]').forEach(tr=>tr.onclick=()=>{fTech=tr.dataset.tech;fStat='ทั้งหมด';go('rv');});
+  document.querySelectorAll('[data-k1]').forEach(a=>a.onclick=e=>{e.preventDefault();e.stopPropagation();otAll=false;go('ot');});
 }
 function vPoint(){
   const bk=TECHS.filter(isBkk);let tot=0;
@@ -208,8 +247,8 @@ function vWeek(){
   $('#view').innerHTML=h+'</table></div>';
   $('#wTech').onchange=e=>{wkTech=e.target.value;vWeek();};$('#wPrev').onclick=()=>{wkStart=addD(wkStart,-7);vWeek();};$('#wNext').onclick=()=>{wkStart=addD(wkStart,7);vWeek();};
 }
-function count(){$('#nWait').textContent=RECS.filter(r=>inMonth(r)&&(r.status==='รอตรวจ'||r.status==='รอเอกสาร')).length||'';}
-function go(t){tab=t;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({ov:vOverview,rv:vReview,sc:vScore,pt:vPoint,wk:vWeek})[t]();count();window.scrollTo(0,0);}
+function count(){$('#nWait').textContent=RECS.filter(r=>inMonth(r)&&(r.status==='รอตรวจ'||r.status==='รอเอกสาร')).length||'';$('#nOt').textContent=RECS.filter(r=>inMonth(r)&&r.code==='K1').length||'';}
+function go(t){tab=t;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({ov:vOverview,rv:vReview,sc:vScore,ot:vOther,pl:vPlan,pt:vPoint,wk:vWeek})[t]();count();window.scrollTo(0,0);}
 // ===== บันทึกผลตรวจเข้าระบบกลาง (เฉพาะข้อมูลจริง) =====
 function postRev(id,s,reason){if(!LIVE||sampleOn())return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({app:'tech',op:'review',id:id,status:s,by:REVIEWER,reason:reason||''})}).then(r=>r.json()).then(j=>{if(!j.ok)throw 0;}).catch(()=>alert('บันทึกผลตรวจเข้าระบบไม่สำเร็จ — เช็กเน็ตแล้วกดใหม่อีกครั้งนะคะ'));}
 // ===== start =====
