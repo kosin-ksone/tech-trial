@@ -92,7 +92,7 @@ const DOW=['อา','จ','อ','พ','พฤ','ศ','ส'], DOWF=['อาทิ
   MONF=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const dk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'), kd=k=>new Date(k+'T00:00:00');
-const addD=(k,n)=>{const d=kd(k);d.setDate(d.getDate()+n);return dk(d);}, monOf=k=>{const d=kd(k);d.setDate(d.getDate()-((d.getDay()+6)%7));return dk(d);};
+const addD=(k,n)=>{const d=kd(k);d.setDate(d.getDate()+n);return dk(d);}, monOf=k=>{const d=kd(k);d.setDate(d.getDate()-d.getDay());return dk(d);};   // สัปดาห์ช่าง: อาทิตย์–เสาร์
 const thD=k=>{const d=kd(k);return DOW[d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()];};
 const TECHS=(window.TECHNICIANS||[]).filter(t=>t.status!=='pending');
 const isBkk=t=>(t.region||'กทม./ปริมณฑล')!=='ต่างจังหวัด';

@@ -1051,12 +1051,12 @@ function openViewer(srcs,idx,caption){
 function makeThumb(data,maxDim,q){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{let w=im.naturalWidth,h=im.naturalHeight;const k=Math.min(1,maxDim/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',q));};im.onerror=rej;im.src=data;});}
 
-/* ===== สัปดาห์ (จันทร์–อาทิตย์) + ส่งรายงานประจำสัปดาห์ ===== */
+/* ===== สัปดาห์ (อาทิตย์–เสาร์) + รายเดือน (วันที่ 1 – สิ้นเดือน) ===== */
 const TH_MONTH=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const TH_DOW_S=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 function kd(k){return new Date(k+'T00:00:00');}
 function addDays(k,n){const d=kd(k);d.setDate(d.getDate()+n);return dkey(d);}
-function wkStart(k){const d=kd(k);d.setDate(d.getDate()-((d.getDay()+6)%7));return dkey(d);}
+function wkStart(k){const d=kd(k);d.setDate(d.getDate()-d.getDay());return dkey(d);}   // เริ่มวันอาทิตย์
 function weekLabel(ws){const a=kd(ws),b=kd(addDays(ws,6));const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   return a.getDate()+(a.getMonth()!==b.getMonth()?' '+m[a.getMonth()]:'')+'–'+b.getDate()+' '+m[b.getMonth()]+' '+String((b.getFullYear()+543)%100);}
 // สัปดาห์ที่เท่าไรของเดือน — สัปดาห์ที่คร่อมเดือน นับเป็นของเดือนที่วันพฤหัสอยู่
@@ -1075,6 +1075,10 @@ function weekDays(ws){
     out.push({dk:dk,d:kd(dk),off:!items.length&&di.off,offName:di.name||'',items:items});}
   return out;
 }
+// ทั้งเดือน: วันที่ 1 ถึงวันสุดท้าย
+function monthDays(y,m){const last=new Date(y,m+1,0).getDate(),out=[];
+  for(let n=1;n<=last;n++){const dk=dkey(new Date(y,m,n)),items=myRecs().filter(r=>r.dateKey===dk),di=dayInfo(dk);out.push({dk:dk,d:kd(dk),off:!items.length&&di.off,offName:di.name||'',items:items});}
+  return out;}
 function cleanLabel(r){return r.desc?r.label.replace(' — '+r.desc,''):r.label;}
 let mineWeek=null;
 /* ===== แก้ไข / ลบ รายงานที่บันทึกแล้ว (ในเครื่องนี้) ===== */
@@ -1215,18 +1219,18 @@ function renderMine(){ syncStatus();
   $$('#mineBody [data-day]').forEach(b=>b.onclick=()=>printReport('day',ws,b.dataset.day));
   $$('#mineBody [data-ed]').forEach(b=>b.onclick=()=>editMine(b.dataset.ed));
   const xn={week:'รายงานรายสัปดาห์',month:'รายงานรายเดือน',day:'รายงานรายวัน'};
-  $$('#mineBody [data-xl]').forEach(b=>b.onclick=()=>asExcel(()=>printReport(b.dataset.xl,ws),xn[b.dataset.xl]+' '+currentTech.name+' '+(b.dataset.xl==='month'?ws.slice(0,7):ws)+'.xlsx'));
+  $$('#mineBody [data-xl]').forEach(b=>b.onclick=()=>asExcel(()=>printReport(b.dataset.xl,ws),xn[b.dataset.xl]+' '+currentTech.name+' '+(b.dataset.xl==='month'?(o=>o.year+'-'+String(o.month+1).padStart(2,'0'))(weekOfMonth(ws)):ws)+'.xlsx'));
   $$('#mineBody [data-xday]').forEach(b=>b.onclick=()=>asExcel(()=>printReport('day',ws,b.dataset.xday),'รายงานรายวัน '+currentTech.name+' '+b.dataset.xday+'.xlsx'));
 }
 
 /* ===== ดาวน์โหลด = หน้าพิมพ์แบบฟอร์มเดิม (แนวนอน) → บันทึกเป็น PDF ===== */
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function weekTableHtml(ws,only){   // only = เฉพาะวันนั้น (โหลดรายวัน)
-  const wm=weekOfMonth(ws);
-  let h='<div class="pg"><div class="hd">'+(only?('รายงานการทำงานประจำวัน <u>&nbsp;วัน'+THAI_DOW[kd(only).getDay()]+'ที่ '+todayStr(kd(only))+'&nbsp;</u>'):('รายงานการทำงานสัปดาห์ที่ <u>&nbsp;'+wm.n+'&nbsp;</u>'))+' เดือน <u>&nbsp;'+TH_MONTH[wm.month]+' '+(wm.year+543)+'&nbsp;</u> &nbsp; ชื่อผู้ปฏิบัติงาน <u>&nbsp;'+esc(currentTech.name)+'&nbsp;</u></div>'+
+function weekTableHtml(ws,only,mon){   // only = เฉพาะวันนั้น (โหลดรายวัน) · mon={y,m} = ทั้งเดือน
+  const wm=mon?{month:mon.m,year:mon.y}:weekOfMonth(ws);
+  let h='<div class="pg"><div class="hd">'+(mon?'รายงานการทำงานประจำ':only?('รายงานการทำงานประจำวัน <u>&nbsp;วัน'+THAI_DOW[kd(only).getDay()]+'ที่ '+todayStr(kd(only))+'&nbsp;</u>'):('รายงานการทำงานสัปดาห์ที่ <u>&nbsp;'+wm.n+'&nbsp;</u>'))+' เดือน <u>&nbsp;'+TH_MONTH[wm.month]+' '+(wm.year+543)+'&nbsp;</u> &nbsp; ชื่อผู้ปฏิบัติงาน <u>&nbsp;'+esc(currentTech.name)+'&nbsp;</u></div>'+
     '<table><thead><tr><th style="width:7%">ประจำวัน</th><th style="width:12%">ทำที่ไหน</th><th style="width:13%">ทำอะไร</th><th style="width:16%">รายละเอียด</th><th style="width:12%">ปัญหาและแนวทางแก้ไข</th><th>ภาพประกอบ</th></tr></thead><tbody>';
   if(only)h=h.replace(/ เดือน <u>.*?<\/u>/,'');
-  weekDays(ws).forEach(d=>{
+  (mon?monthDays(mon.y,mon.m):weekDays(ws)).forEach(d=>{
     if(only&&d.dk!==only)return;
     const dn='วัน'+THAI_DOW[d.d.getDay()]+'ที่<br>'+todayStr(d.d);
     if(!d.items.length){h+='<tr><td>'+dn+'</td><td colspan="5" class="off">'+(d.off?'วันหยุด'+(d.offName?' · '+esc(d.offName):''):'-')+'</td></tr>';return;}
@@ -1244,14 +1248,14 @@ function weekTableHtml(ws,only){   // only = เฉพาะวันนั้�
 }
 function printReport(kind,ws,day){
   let weeks=[ws];
-  if(kind==='month'){const wm=weekOfMonth(ws);weeks=[];let w=wkStart(dkey(new Date(wm.year,wm.month,1)));for(let i=0;i<6;i++){const x=weekOfMonth(w);if(x.month===wm.month&&x.year===wm.year)weeks.push(w);w=addDays(w,7);}}
+  const wm0=weekOfMonth(ws),mon=kind==='month'?{y:wm0.year,m:wm0.month}:null;
   const css='@page{size:A4 landscape;margin:12mm}body{font-family:"TH Sarabun New","Sarabun","Leelawadee UI",Tahoma,sans-serif;font-size:13px;color:#000;margin:0}'+
     '.pg{page-break-after:always}.pg:last-child{page-break-after:auto}.hd{font-size:16px;font-weight:bold;margin:0 0 8px}'+
     'table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #000;padding:5px;vertical-align:top;word-wrap:break-word}th{background:#eee}'+
     'td.off{text-align:center;color:#555}.pics img{width:31.5%;margin:.9%;border-radius:2px}tr{page-break-inside:avoid}';
   const w=window.open('','_blank');
   if(!w){showModal({icon:'⚠️',title:'เปิดหน้าดาวน์โหลดไม่ได้',body:'อนุญาตป๊อปอัปให้แอปก่อน แล้วกดใหม่อีกครั้งนะคะ',buttons:[{label:'รับทราบ',val:'ok',cls:'pri'}]});return;}
-  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>รายงานการทำงาน '+esc(currentTech.name)+'</title><style>'+css+'</style></head><body>'+weeks.map(w=>weekTableHtml(w,kind==='day'?day:null)).join('')+'</body></html>');
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>รายงานการทำงาน '+esc(currentTech.name)+'</title><style>'+css+'</style></head><body>'+(mon?weekTableHtml(null,null,mon):weekTableHtml(ws,kind==='day'?day:null))+'</body></html>');
   w.document.close();setTimeout(()=>{try{w.focus();w.print();}catch(e){}},600);
 }
 
@@ -1282,7 +1286,7 @@ function renderScore(){
   $$('#scoreBody [data-m]').forEach(b=>b.onclick=()=>{if(b.disabled)return;scoreMonth=b.dataset.m;renderScore();});
   $$('#scoreBody [data-doc]').forEach(b=>b.onclick=()=>{docRecId=b.getAttribute('data-doc');activeCode=null;$('#photoInput').click();});
 }
-const APP_VER='v2.5 · 26 ต.ค. 69';
+const APP_VER='v2.6 · 26 ต.ค. 69';
 function verText(){return 'รายงานงานช่าง '+APP_VER+' · Developed by KOSIN';}
 function completeDoc(id,f){const all=getReports();const r=all.find(x=>x.id===id);if(r&&f)resizeImageBlob(f,1280,0.68).then(d=>syncPush({op:'doc',id:id,dateKey:r.dateKey,tech:r.tech,add:[d]})).catch(()=>{});if(r){r.status='รอตรวจ';r.docDeadline='';r.photoCount=(r.photoCount||0)+1;saveReports(all);}renderScore();if(SUBMIT_URL)fetch(SUBMIT_URL,{method:'POST',body:JSON.stringify({action:'adddoc',id:id})}).catch(()=>{});}
 
