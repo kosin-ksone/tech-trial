@@ -35,3 +35,4 @@ window.APP_CONFIG = {
 
 // ฉบับทดลองงาน (ลิงก์แยก)
 window.APP_CONFIG.TRIAL=true; window.APP_CONFIG.SUBMIT_URL=''; window.APP_CONFIG.SYNC_URL='';   // ไม่ส่งเข้าระบบ/Dashboard · เก็บในเครื่องอย่างเดียว
+window.APP_CONFIG.PLAN_URL='https://script.google.com/macros/s/AKfycbxdp2F0oxiP_8uQWeU8WoYo3-jr8QAIYm84YeQZ2P_PX-6UjFzg3tKu32lP2y1_wisDXQ/exec';   // อ่านตารางงานจากชีตอย่างเดียว
